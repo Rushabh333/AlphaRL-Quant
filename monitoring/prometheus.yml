@@ -1,0 +1,90 @@
+# Prometheus Configuration for AlphaRL-Quant
+
+global:
+  scrape_interval: 15s      # Scrape targets every 15 seconds
+  evaluation_interval: 15s   # Evaluate rules every 15 seconds
+  scrape_timeout: 10s
+  
+  # Attach these labels to time series or alerts
+  external_labels:
+    cluster: 'alpharl-quant'
+    environment: 'production'
+
+# =============================================================================
+# Alerting Configuration
+# =============================================================================
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+# =============================================================================
+# Rule Files
+# =============================================================================
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+# =============================================================================
+# Scrape Configurations
+# =============================================================================
+scrape_configs:
+  # AlphaRL-Quant Application Metrics
+  - job_name: 'alpharl-pipeline'
+    static_configs:
+      - targets: ['pipeline:9090']
+        labels:
+          service: 'pipeline'
+          component: 'data-collection'
+  
+  - job_name: 'alpharl-training'
+    static_configs:
+      - targets: ['training:9091']
+        labels:
+          service: 'training'
+          component: 'rl-agent'
+  
+  # Prometheus Self-Monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  
+  # Node Exporter - System Metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'alpharl-host'
+  
+  # PostgreSQL Database Metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          database: 'alpharl_quant'
+  
+  # Container Metrics (cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      # Drop high-cardinality metrics
+      - source_labels: [__name__]
+        regex: 'container_.*_total'
+        action: keep
+  
+  # Grafana (optional)
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+
+# =============================================================================
+# Metric Relabeling (for cost optimization)
+# =============================================================================
+# Drop metrics we don't need to reduce storage
+# Uncomment to enable aggressive filtering
+#
+# metric_relabel_configs:
+#   - source_labels: [__name__]
+#     regex: 'go_.*|process_.*'
+#     action: drop

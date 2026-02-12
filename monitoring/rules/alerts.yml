@@ -1,0 +1,241 @@
+# Prometheus Alert Rules for AlphaRL-Quant
+
+groups:
+  - name: alpharl_pipeline
+    interval: 30s
+    rules:
+      # Pipeline failure rate too high
+      - alert: HighPipelineFailureRate
+        expr: |
+          rate(pipeline_runs_total{status="failed"}[5m]) 
+          / 
+          rate(pipeline_runs_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: pipeline
+        annotations:
+          summary: "High pipeline failure rate"
+          description: "Pipeline failure rate is {{ $value | humanizePercentage }} (threshold: 10%)"
+      
+      # Pipeline not running
+      - alert: PipelineNotRunning
+        expr: |
+          rate(pipeline_runs_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: critical
+          component: pipeline
+        annotations:
+          summary: "Pipeline has stopped running"
+          description: "No pipeline runs detected in the last 30 minutes"
+      
+      # Pipeline taking too long
+      - alert: SlowPipelineExecution
+        expr: |
+          histogram_quantile(0.95, 
+            rate(pipeline_duration_seconds_bucket[10m])
+          ) > 600
+        for: 10m
+        labels:
+          severity: warning
+          component: pipeline
+        annotations:
+          summary: "Pipeline execution is slow"
+          description: "95th percentile pipeline duration is {{ $value | humanizeDuration }}"
+
+  - name: alpharl_api
+    interval: 30s
+    rules:
+      # API error rate too high
+      - alert: HighAPIErrorRate
+        expr: |
+          rate(api_requests_total{status="failed"}[5m]) 
+          / 
+          rate(api_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API error rate for {{ $labels.source }}"
+          description: "API error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+      
+      # Rate limit being hit frequently
+      - alert: FrequentRateLimitHits
+        expr: |
+          rate(api_rate_limit_hits_total[10m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Frequent rate limit hits on {{ $labels.source }}"
+          description: "Consider reducing request rate or upgrading API tier"
+
+  - name: alpharl_database
+    interval: 30s
+    rules:
+      # Database down
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "Cannot connect to PostgreSQL database"
+      
+      # High database query latency
+      - alert: HighDatabaseLatency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(db_query_duration_seconds_bucket[5m])
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High database query latency"
+          description: "95th percentile query time is {{ $value | humanizeDuration }}"
+      
+      # Too many database connections
+      - alert: HighDatabaseConnections
+        expr: db_connections_active > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High number of active database connections"
+          description: "{{ $value }} active connections (consider increasing pool size)"
+
+  - name: alpharl_training
+    interval: 30s
+    rules:
+      # Training not progressing
+      - alert: TrainingStalled
+        expr: |
+          rate(training_timesteps_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+          component: training
+        annotations:
+          summary: "Training appears to be stalled"
+          description: "No training progress in last 10 minutes"
+      
+      # Poor episode rewards
+      - alert: LowEpisodeRewards
+        expr: |
+          avg_over_time(episode_reward[30m]) < -100
+        for: 30m
+        labels:
+          severity: info
+          component: training
+        annotations:
+          summary: "Episode rewards are consistently low"
+          description: "Average reward is {{ $value | humanize }}"
+      
+      # Portfolio drawdown too high
+      - alert: HighDrawdown
+        expr: max_drawdown > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: training
+        annotations:
+          summary: "High portfolio drawdown detected"
+          description: "Maximum drawdown is {{ $value }}%"
+
+  - name: alpharl_system
+    interval: 30s
+    rules:
+      # System health check failing
+      - alert: UnhealthyComponent
+        expr: health_status == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Component {{ $labels.component }} is unhealthy"
+          description: "Health check failing for {{ $labels.component }}"
+      
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanize }}%"
+      
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanize }}%"
+      
+      # Low disk space
+      - alert: LowDiskSpace
+        expr: |
+          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs"} / node_filesystem_size_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value | humanize }}% on {{ $labels.mountpoint }}"
+      
+      # Disk will fill soon
+      - alert: DiskWillFillSoon
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs"}[1h], 24 * 3600) < 0
+        for: 1h
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Disk will fill in less than 24 hours"
+          description: "Based on current growth rate, disk {{ $labels.mountpoint }} will be full soon"
+
+  - name: alpharl_features
+    interval: 30s
+    rules:
+      # Too many null values in features
+      - alert: HighFeatureNullPercentage
+        expr: feature_null_percentage > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: features
+        annotations:
+          summary: "High null percentage in feature {{ $labels.feature_name }}"
+          description: "{{ $value | humanize }}% of values are null"
+      
+      # Feature computation taking too long
+      - alert: SlowFeatureComputation
+        expr: |
+          histogram_quantile(0.95, 
+            rate(feature_computation_seconds_bucket[5m])
+          ) > 5.0
+        for: 5m
+        labels:
+          severity: info
+          component: features
+        annotations:
+          summary: "Slow feature computation for {{ $labels.feature_name }}"
+          description: "95th percentile computation time is {{ $value | humanizeDuration }}"

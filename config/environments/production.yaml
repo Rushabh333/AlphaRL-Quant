@@ -1,0 +1,326 @@
+# Production Environment Configuration
+# CRITICAL: Live trading with real money
+
+# =============================================================================
+# Environment Metadata
+# =============================================================================
+environment:
+  name: "production"
+  description: "Production environment - LIVE TRADING"
+
+# =============================================================================
+# Feature Flags (PRODUCTION) - STRICT SAFETY
+# =============================================================================
+feature_flags:
+  use_mock_data: false          # ⚠️ MUST be false in production
+  enable_paper_trading: false   # ⚠️ REAL TRADING - set to true for testing
+  debug_mode: false             # ⚠️ MUST be false
+  strict_validation: true       # ⚠️ MUST be true
+  enable_tensorboard: true      # Monitor performance
+  circuit_breaker: true         # ⚠️ MUST be true
+  save_checkpoints: true        # Save all checkpoints
+  enable_profiling: false       # Minimize overhead
+  
+  # Production-specific safety features
+  require_human_approval: false  # Require manual approval for trades
+  max_daily_loss_limit: true    # Stop trading on high losses
+  audit_all_trades: true        # Log everything for compliance
+
+# =============================================================================
+# Logging (Production)
+# =============================================================================
+logging:
+  level: "INFO"  # Don't use DEBUG in production
+  format: "json"
+  console_output: true
+  file_output: true
+  
+  # Production log settings
+  sensitive_data_masking: true
+  log_retention_days: 90
+  
+  external_logging:
+    enabled: true
+    provider: "cloudwatch"  # or "stackdriver", "datadog"
+
+# =============================================================================
+# Database (Production)
+# =============================================================================
+database:
+  host: "${DB_HOST}"
+  port: 5432
+  name: "alpharl_quant_production"
+  user: "trader"
+  ssl_required: true  # ⚠️ MUST be true
+  echo: false
+  
+  # Production database settings
+  pool_size: 20
+  max_overflow: 10
+  pool_timeout: 30
+  
+  backup:
+    enabled: true
+    automated_snapshots: true
+    snapshot_retention: 30  # days
+
+# =============================================================================
+# Data Collection (Production)
+# =============================================================================
+data:
+  symbols:
+    - "AAPL"
+    - "GOOGL"
+    - "MSFT"
+    - "AMZN"
+    - "META"
+    - "TSLA"
+    - "NVDA"
+    - "JPM"
+    - "BAC"
+    - "V"
+  
+  lookback_days: 730  # 2 years of history
+  update_interval: 900  # 15 minutes (more frequent)
+  
+  quality_checks:
+    enabled: true
+    min_data_points: 252  # ~1 year trading days
+    max_missing_percent: 2  # Strict data quality
+    outlier_detection: true
+  
+  # Failover configuration
+  sources:
+    primary: "alpha_vantage"
+    fallback:
+      - "yahoo_finance"
+      - "polygon"
+    
+    circuit_breaker:
+      max_failures: 5
+      backoff: "exponential"
+      max_backoff: 3600  # 1 hour
+
+# =============================================================================
+# Training (Production)
+# =============================================================================
+training:
+  total_timesteps: 2000000  # Full training
+  eval_freq: 10000
+  
+  checkpoint:
+    enabled: true
+    frequency: 50000
+    keep_best: true
+    keep_all: true  # Keep all checkpoints for audit
+    min_episodes: 500
+  
+  # Model validation before deployment
+  validation:
+    required_sharpe_ratio: 1.0
+    required_win_rate: 0.52
+    max_drawdown_tolerance: 20  # %
+    min_backtest_days: 90
+
+# =============================================================================
+# Trading (Production) - CRITICAL SETTINGS
+# =============================================================================
+trading:
+  initial_balance: "${INITIAL_CAPITAL}"  # Set via secure env var
+  transaction_cost: 0.001  # 0.1% (realistic)
+  max_position_size: 0.2   # 20% max (conservative)
+  
+  # Risk management limits
+  limits:
+    max_trades_per_day: 10
+    max_drawdown_percent: 10  # Stop trading at 10% drawdown
+    max_daily_loss: 1000      # Stop at $1000 daily loss
+    max_position_value: 50000
+    
+    position_size_limits:
+      min: 1000
+      max: 20000
+  
+  # Trading hours (market hours only)
+  trading_hours:
+    enabled: true
+    start: "09:30"  # EST
+    end: "16:00"    # EST
+    timezone: "America/New_York"
+  
+  # Circuit breakers
+  circuit_breakers:
+    - type: "drawdown"
+      threshold: 10
+      action: "stop_trading"
+    
+    - type: "error_rate"
+      threshold: 5  # 5% errors
+      window: 3600  # 1 hour
+      action: "pause_trading"
+    
+    - type: "model_uncertainty"
+      threshold: 0.8
+      action: "require_approval"
+
+# =============================================================================
+# API Configuration (Production)
+# =============================================================================
+api:
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60  # Conservative
+    burst_limit: 10
+  
+  alpha_vantage:
+    enabled: true
+    api_key: "${ALPHA_VANTAGE_API_KEY}"
+    timeout: 10
+    premium_tier: true
+  
+  yahoo_finance:
+    enabled: true
+    timeout: 10
+  
+  polygon:
+    enabled: true
+    api_key: "${POLYGON_API_KEY}"
+  
+  # API health monitoring
+  health_check:
+    enabled: true
+    interval: 60
+    failures_before_fallback: 3
+
+# =============================================================================
+# Monitoring (Production) - COMPREHENSIVE
+# =============================================================================
+monitoring:
+  metrics_port: 9090
+  enable_profiling: false  # Minimize overhead
+  
+  # Comprehensive alerting
+  alerts:
+    enabled: true
+    channels:
+      - slack
+      - email
+      - pagerduty  # For critical alerts
+    
+    rules:
+      - name: "critical_error"
+        threshold: 1
+        severity: "critical"
+        notify: ["pagerduty", "slack"]
+      
+      - name: "high_drawdown"
+        metric: "portfolio_drawdown"
+        threshold: 5  # 5% drawdown
+        severity: "warning"
+        notify: ["slack", "email"]
+      
+      - name: "model_degradation"
+        metric: "sharpe_ratio"
+        threshold: 0.5
+        window: 86400  # 1 day
+        severity: "warning"
+      
+      - name: "api_failures"
+        metric: "api_error_rate"
+        threshold: 10  # 10% errors
+        window: 300
+        severity: "warning"
+      
+      - name: "database_latency"
+        metric: "db_query_p95"
+        threshold: 1000  # 1 second
+        severity: "warning"
+  
+  # Performance tracking
+  performance_metrics:
+    - "sharpe_ratio"
+    - "max_drawdown"
+    - "win_rate"
+    - "average_trade_return"
+    - "portfolio_value"
+  
+  # Audit logging
+  audit:
+    enabled: true
+    log_all_trades: true
+    log_all_signals: true
+    retention_years: 7  # Compliance requirement
+
+# =============================================================================
+# Backup & Recovery (Production)
+# =============================================================================
+backup:
+  enabled: true
+  frequency: "every_6_hours"
+  retention_days: 90
+  
+  components:
+    database: true
+    models: true
+    configs: true
+    logs: true
+  
+  # Multi-region backup
+  upload_to_cloud: true
+  cloud_providers:
+    - provider: "s3"
+      bucket: "alpharl-production-backups"
+      region: "us-east-1"
+      encryption: true
+    
+    - provider: "gcs"
+      bucket: "alpharl-production-backups"
+      region: "us-central1"
+      encryption: true
+  
+  # Disaster recovery
+  disaster_recovery:
+    enabled: true
+    rto: 15  # minutes
+    rpo: 60  # minutes
+    automated_failover: true
+
+# =============================================================================
+# Security (Production)
+# =============================================================================
+security:
+  encryption:
+    at_rest: true
+    in_transit: true
+    algorithm: "AES-256"
+  
+  secrets_management:
+    provider: "aws_secrets_manager"  # or "gcp_secret_manager"
+    rotation_enabled: true
+    rotation_days: 90
+  
+  compliance:
+    audit_trail: true
+    data_retention_policy: "7_years"
+    pii_handling: "encrypted"
+
+# =============================================================================
+# Compliance & Auditing
+# =============================================================================
+compliance:
+  enabled: true
+  
+  audit_trail:
+    track_all_trades: true
+    track_model_predictions: true
+    track_configuration_changes: true
+  
+  reporting:
+    daily_summary: true
+    weekly_performance: true
+    monthly_compliance: true
+  
+  data_retention:
+    trades: "7_years"
+    logs: "3_years"
+    models: "5_years"

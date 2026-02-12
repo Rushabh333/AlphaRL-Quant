@@ -172,7 +172,9 @@ class AlphaRLConfig:
                 database=DatabaseConfig(**config_dict.get('database', {}))
             )
         except FileNotFoundError:
-            print(f"Config file {config_path} not found. Using defaults.")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Config file {config_path} not found. Using defaults.")
             return cls()
     
     def save_yaml(self, config_path: str):
@@ -231,4 +233,6 @@ def seed_everything(seed: int = 42):
     
     os.environ['PYTHONHASHSEED'] = str(seed)
     
-    print(f"Random seed set to {seed} for reproducibility")
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Random seed set to {seed} for reproducibility")

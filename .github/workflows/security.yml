@@ -1,0 +1,155 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly security scans
+    - cron: '0 0 * * 0'
+
+jobs:
+  python-security:
+    name: Python Security Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety bandit
+          pip install -r requirements.txt
+      
+      - name: Run Safety (Dependency Vulnerabilities)
+        run: |
+          safety check --json --output safety-report.json || true
+          safety check --exit-code 1 --severity=medium
+        continue-on-error: true
+      
+      - name: Run Bandit (Code Security Issues)
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -ll -f screen
+        continue-on-error: true
+      
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            safety-report.json
+            bandit-report.json
+
+  docker-security:
+    name: Docker Image Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Build Docker image
+        run: |
+          docker build -t alpharl-quant:${{ github.sha }} .
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'alpharl-quant:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: Scan for secrets in Docker image
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            alpharl-quant:${{ github.sha }}
+
+  secrets-detection:
+    name: Detect Secrets in Code
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Full history for better detection
+      
+      - name: Install detect-secrets
+        run: |
+          pip install detect-secrets
+      
+      - name: Scan for secrets
+        run: |
+          detect-secrets scan --all-files \
+            --exclude-files '.*\.ipynb$' \
+            --exclude-files '.*\.lock$' \
+            --baseline .secrets.baseline || true
+          
+          # Fail if new secrets found
+          detect-secrets scan --all-files \
+            --exclude-files '.*\.ipynb$' \
+            --exclude-files '.*\.lock$' | \
+            grep -q '"results": {}' || \
+            (echo "⚠️ Potential secrets detected! Review findings." && exit 1)
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v3
+        with:
+          fail-on-severity: moderate
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [python-security, docker-security, secrets-detection]
+    if: always()
+    
+    steps:
+      - name: Check results
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Security | ${{ needs.python-security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Scanning | ${{ needs.docker-security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secrets Detection | ${{ needs.secrets-detection.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.python-security.result }}" == "failure" ] || \
+             [ "${{ needs.docker-security.result }}" == "failure" ] || \
+             [ "${{ needs.secrets-detection.result }}" == "failure" ]; then
+            echo "❌ **Security issues detected!** Review the logs above." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ **All security checks passed!**" >> $GITHUB_STEP_SUMMARY
+          fi

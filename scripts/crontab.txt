@@ -1,0 +1,72 @@
+# AlphaRL-Quant Cron Jobs
+# Install with: crontab -e
+# Or use: crontab scripts/crontab.txt
+
+# =============================================================================
+# Automated Backups
+# =============================================================================
+
+# Daily backup at 2:00 AM
+0 2 * * * cd /path/to/AlphaRL-Quant && bash scripts/backup.sh >> logs/backup.log 2>&1
+
+# Weekly full backup (Sunday at 3:00 AM)
+0 3 * * 0 cd /path/to/AlphaRL-Quant && BACKUP_LOGS=true bash scripts/backup.sh >> logs/backup.log 2>&1
+
+# =============================================================================
+# Health Checks
+# =============================================================================
+
+# Health check every hour
+0 * * * * cd /path/to/AlphaRL-Quant && python3 scripts/health_check.py >> logs/health.log 2>&1
+
+# =============================================================================
+# Data Pipeline
+# =============================================================================
+
+# Run data pipeline daily at 6:00 AM (after market close)
+0 6 * * * cd /path/to/AlphaRL-Quant && python3 scripts/run_pipeline.py >> logs/pipeline.log 2>&1
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+# Clean old logs weekly (Monday at 1:00 AM)
+0 1 * * 1 find /path/to/AlphaRL-Quant/logs -name "*.log" -mtime +30 -delete
+
+# Clean old TensorBoard logs (keep last 60 days)
+0 1 * * 1 find /path/to/AlphaRL-Quant/logs/tensorboard -mtime +60 -delete
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+
+# Restart monitoring stack if down (every 6 hours)
+0 */6 * * * cd /path/to/AlphaRL-Quant && docker-compose -f docker-compose.monitoring.yml ps | grep -q "Exit" && docker-compose -f docker-compose.monitoring.yml restart
+
+# =============================================================================
+# Notes
+# =============================================================================
+# 
+# Cron Format:
+# ┌───────────── minute (0 - 59)
+# │ ┌───────────── hour (0 - 23)
+# │ │ ┌───────────── day of month (1 - 31)
+# │ │ │ ┌───────────── month (1 - 12)
+# │ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
+# │ │ │ │ │
+# * * * * * command to execute
+#
+# Special Strings:
+# @reboot    Run once at startup
+# @yearly    Run once a year (0 0 1 1 *)
+# @monthly   Run once a month (0 0 1 * *)
+# @weekly    Run once a week (0 0 * * 0)
+# @daily     Run once a day (0 0 * * *)
+# @hourly    Run once an hour (0 * * * *)
+#
+# Installation:
+# 1. Replace /path/to/AlphaRL-Quant with actual path
+# 2. Review and adjust times for your timezone
+# 3. Install: crontab scripts/crontab.txt
+# 4. Verify: crontab -l
+#

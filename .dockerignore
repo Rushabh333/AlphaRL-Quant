@@ -1,0 +1,73 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.sw[op]
+.DS_Store
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+
+# Logs (keep structure, exclude content)
+logs/*
+!logs/.gitkeep
+
+# Data (exclude raw/cache DATA, keep processed for testing)
+data/raw/*
+data/cache/*
+!data/**/.gitkeep
+
+# Models and checkpoints (too large)
+models/checkpoints/*
+checkpoints/*
+!models/**/.gitkeep
+!checkpoints/.gitkeep
+
+#Reports
+reports/*
+!reports/.gitkeep
+
+# Environment files (secrets)
+.env
+.env.local
+.secrets/
+
+# Jupyter notebooks
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# Documentation build
+docs/_build/
+site/
+
+# Docker
+.dockerignore
+
+# CI/CD
+.github/
+
+# Package build
+build/
+dist/
+*.egg-info/

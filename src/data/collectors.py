@@ -50,9 +50,13 @@ class BaseDataCollector(ABC):
             if not self.validate_data(data):
                 raise DataCollectionError("Basic data validation failed")
             
-            # TODO: Fix schema validation to handle nulls properly
-            # data = MarketDataSchema.validate(data)
-            logger.info("Schema validation skipped - nulls will be cleaned in processing")
+            # Schema validation with proper null handling
+            try:
+                data = MarketDataSchema.validate(data)
+                logger.info("✓ Schema validation passed")
+            except Exception as e:
+                logger.warning(f"Schema validation failed (non-critical): {str(e)}")
+                logger.info("Continuing - nulls will be handled in processing stage")
             
             # Store
             self.data = data

@@ -1,0 +1,105 @@
+# Development Environment Configuration
+# Overrides base.yaml for local development
+
+# =============================================================================
+# Environment Metadata
+# =============================================================================
+environment:
+  name: "development"
+  description: "Local development environment"
+
+# =============================================================================
+# Feature Flags (DEVELOPMENT)
+# =============================================================================
+feature_flags:
+  use_mock_data: true           # Use mock data instead of real APIs
+  enable_paper_trading: true    # Simulated trading only
+  debug_mode: true              # Verbose logging and debugging
+  strict_validation: false      # Allow incomplete/test data
+  enable_tensorboard: true      # TensorBoard monitoring
+  circuit_breaker: false        # Disable circuit breaker for testing
+  save_checkpoints: false       # Don't save every checkpoint
+  enable_profiling: true        # Performance profiling
+  
+# =============================================================================
+# Logging (Development)
+# =============================================================================
+logging:
+  level: "DEBUG"
+  format: "standard"  # Human-readable format
+  console_output: true
+  file_output: false  # Don't clutter with log files in dev
+
+# =============================================================================
+# Database (Development)
+# =============================================================================
+database:
+  host: "localhost"
+  port: 5432
+  name: "alpharl_quant_dev"
+  user: "trader"
+  ssl_required: false
+  echo: true  # Log SQL queries
+
+# =============================================================================
+# Data Collection (Development)
+# =============================================================================
+data:
+  symbols:
+    - "AAPL"  # Fewer symbols for faster testing
+    - "GOOGL"
+  
+  lookback_days: 30  # Less historical data
+  update_interval: 7200  # 2 hours (less frequent)
+  
+  mock_data:
+    enabled: true
+    scenario: "trending"  # trending, volatile, sideways
+    noise_level: 0.02
+
+# =============================================================================
+# Training (Development)
+# =============================================================================
+training:
+  total_timesteps: 10000  # Quick training for testing
+  eval_freq: 1000
+  
+  checkpoint:
+    enabled: false  # Don't save checkpoints in dev
+    frequency: 5000
+
+# =============================================================================
+# Trading (Development)
+# =============================================================================
+trading:
+  initial_balance: 10000
+  transaction_cost: 0.0  # No fees for testing
+  max_position_size: 1.0  # Allow full portfolio positions
+  
+  limits:
+    max_trades_per_day: null  # No limits in dev
+    max_drawdown_percent: null
+
+# =============================================================================
+# API Configuration (Development)
+# =============================================================================
+api:
+  rate_limit:
+    enabled: false  # No rate limiting in dev
+    requests_per_minute: 1000
+  
+  yahoo_finance:
+    enabled: false  # Use mock data instead
+  
+  alpha_vantage:
+    enabled: false
+
+# =============================================================================
+# Monitoring (Development)
+# =============================================================================
+monitoring:
+  metrics_port: 9090
+  enable_profiling: true
+  
+  alerts:
+    enabled: false  # No alerts in dev

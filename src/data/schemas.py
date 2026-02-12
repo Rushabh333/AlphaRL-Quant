@@ -64,7 +64,7 @@ class MarketDataSchema:
                 checks=[
                     Check.greater_than_or_equal_to(0, error="Volume cannot be negative")
                 ],
-                nullable=False,
+                nullable=True,  # Volume can be null for some data sources
                 description="Trading volume"
             ),
             'ticker': Column(
@@ -104,7 +104,7 @@ class MarketDataSchema:
     
     @classmethod
     def validate(cls, data: pd.DataFrame) -> pd.DataFrame:
-    """Validate market data against schema."""
+        """Validate market data against schema."""
         logger.info("Validating market data schema")
         try:
             validated_data = cls.schema.validate(data, lazy=False)
@@ -116,7 +116,7 @@ class MarketDataSchema:
     
     @classmethod
     def validate_lazy(cls, data: pd.DataFrame) -> tuple[pd.DataFrame, list]:
-    """Validate with lazy evaluation to collect all errors."""
+        """Validate with lazy evaluation to collect all errors."""
         logger.info("Validating market data schema (lazy mode)")
         try:
             validated_data = cls.schema.validate(data, lazy=True)
@@ -135,7 +135,7 @@ class FeatureDataSchema:
     
     @staticmethod
     def validate_features(data: pd.DataFrame, feature_names: list) -> pd.DataFrame:
-    """Validate that all expected features exist and contain valid values."""
+        """Validate that all expected features exist and contain valid values."""
         logger.info(f"Validating {len(feature_names)} features")
         
         # Check for missing features

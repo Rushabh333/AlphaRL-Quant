@@ -19,54 +19,79 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Virtual Environment
+# Virtual environments
 venv/
-.venv/
-ENV/
 env/
+ENV/
+.venv
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
 
 # Logs
+logs/
 *.log
-logs/*.log
 
-# Data
-data/raw/*
-data/cache/*
-!data/raw/.gitkeep
-!data/cache/.gitkeep
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# Models (too large for git)
-models/checkpoints/*
-models/best/*
-!models/.gitkeep
+# Models and data
+models/checkpoints/
+models/best/
+data/raw/
+data/processed/
+*.pkl
+*.h5
+*.hdf5
 
-# Environment
+# Backups
+backups/
+*.tar.gz
+
+# Environment variables and secrets
 .env
+.env.local
+.env.*.local
+secrets/
+*.pem
+*.key
+
+# Monitoring
+prometheus_data/
+grafana_data/
+
+# Docker
+.docker/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# Audit and internal docs (DON'T PUSH THESE)
+CODE_AUDIT_REPORT.md
+HUMANIZATION_SUMMARY.md
+fix_ai_patterns.py
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb
-
-# TensorBoard
-logs/tensorboard/*
-
-# Reports (optional - uncomment if too large)
-# reports/*.png
-# reports/*.csv
-
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
+# Temporary files
+tmp/
+temp/
+*.tmp

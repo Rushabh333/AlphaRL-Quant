@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: alpharl-db
+    environment:
+      POSTGRES_DB: trading_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alpharl-network
+
+  # =============================================================================
+  # Data Pipeline Service
+  # =============================================================================
+  pipeline:
+    build:
+      context: .
+      target: production
+    container_name: alpharl-pipeline
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+    command: python scripts/run_pipeline.py
+    networks:
+      - alpharl-network
+
+  # =============================================================================
+  # Training Service (CPU mode by default)
+  # =============================================================================
+  training:
+    build:
+      context: .
+      target: production # Use production target for CPU
+    container_name: alpharl-training
+    depends_on:
+      - pipeline
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./checkpoints:/app/checkpoints
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    command: python src/training/train_agent.py
+    networks:
+      - alpharl-network
+    profiles:
+      - training # Only start with --profile training
+
+  # =============================================================================
+  # Training Service with GPU Support
+  # =============================================================================
+  training-gpu:
+    build:
+      context: .
+      target: training # Use training target with CUDA
+    container_name: alpharl-training-gpu
+    depends_on:
+      - pipeline
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - PYTHONUNBUFFERED=1
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./checkpoints:/app/checkpoints
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+        limits:
+          memory: 16G
+    command: python src/training/train_agent.py
+    networks:
+      - alpharl-network
+    profiles:
+      - gpu # Only start with --profile gpu
+
+  # =============================================================================
+  # TensorBoard Visualization
+  # =============================================================================
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: alpharl-tensorboard
+    command: tensorboard --logdir=/logs/tensorboard --host=0.0.0.0 --port=6006
+    ports:
+      - "6006:6006"
+    volumes:
+      - ./logs:/logs:ro
+    networks:
+      - alpharl-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  alpharl-network:
+    driver: bridge

@@ -1,0 +1,125 @@
+# Base Configuration for AlphaRL-Quant
+# Shared settings across all environments
+
+# =============================================================================
+# Application Settings
+# =============================================================================
+app:
+  name: "AlphaRL-Quant"
+  version: "1.0.0"
+  description: "Production-Grade Reinforcement Learning for Algorithmic Trading"
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+logging:
+  level: "INFO"
+  format: "json"
+  console_output: true
+  file_output: true
+  log_dir: "logs"
+  rotation:
+    max_bytes: 10485760  # 10MB
+    backup_count: 5
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
+database:
+  driver: "postgresql"
+  pool_size: 10
+  max_overflow: 20
+  pool_timeout: 30
+  pool_recycle: 3600
+  echo: false
+
+# =============================================================================
+# Data Collection
+# =============================================================================
+data:
+  symbols:
+    - "AAPL"
+    - "GOOGL"
+    - "MSFT"
+    - "AMZN"
+    - "META"
+  
+  lookback_days: 365
+  update_interval: 3600  # 1 hour in seconds
+  
+  sources:
+    primary: "yahoo_finance"
+    fallback:
+      - "alpha_vantage"
+      - "polygon"
+
+# =============================================================================
+# Feature Engineering
+# =============================================================================
+features:
+  technical_indicators:
+    - "SMA"
+    - "EMA"
+    - "RSI"
+    - "MACD"
+    - "Bollinger_Bands"
+    - "ATR"
+  
+  windows:
+    - 5
+    - 10
+    - 20
+    - 50
+  
+  normalization: "standard"
+  handle_missing: "forward_fill"
+
+# =============================================================================
+# Model Training
+# =============================================================================
+training:
+  algorithm: "PPO"
+  
+  hyperparameters:
+    learning_rate: 0.0003
+    n_steps: 2048
+    batch_size: 64
+    n_epochs: 10
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_range: 0.2
+    ent_coef: 0.01
+    vf_coef: 0.5
+  
+  total_timesteps: 1000000
+  eval_freq: 10000
+  
+  checkpoint:
+    enabled: true
+    frequency: 50000
+    keep_best: true
+
+# =============================================================================
+# Trading Environment
+# =============================================================================
+environment:
+  initial_balance: 10000
+  transaction_cost: 0.001  # 0.1%
+  max_position_size: 0.3   # 30% of portfolio
+  reward_scaling: 1.0
+
+# =============================================================================
+# API Configuration
+# =============================================================================
+api:
+  timeout: 30
+  max_retries: 3
+  backoff_factor: 2
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+monitoring:
+  metrics_port: 9090
+  health_check_interval: 60
+  enable_profiling: false

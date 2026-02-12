@@ -1,0 +1,144 @@
+# Staging Environment Configuration
+# Pre-production testing environment
+
+# =============================================================================
+# Environment Metadata
+# =============================================================================
+environment:
+  name: "staging"
+  description: "Pre-production staging environment"
+
+# =============================================================================
+# Feature Flags (STAGING)
+# =============================================================================
+feature_flags:
+  use_mock_data: false          # Use real data
+  enable_paper_trading: true    # Simulated trading (no real money)
+  debug_mode: false             # Production-like logging
+  strict_validation: true       # Enforce data quality
+  enable_tensorboard: true      # Monitor training
+  circuit_breaker: true         # Enable safety mechanisms
+  save_checkpoints: true        # Save model checkpoints
+  enable_profiling: false       # No overhead from profiling
+  
+# =============================================================================
+# Logging (Staging)
+# =============================================================================
+logging:
+  level: "INFO"
+  format: "json"
+  console_output: true
+  file_output: true
+
+# =============================================================================
+# Database (Staging)
+# =============================================================================
+database:
+  host: "${DB_HOST}"  # Set via environment variable
+  port: 5432
+  name: "alpharl_quant_staging"
+  user: "trader"
+  ssl_required: true
+  echo: false
+
+# =============================================================================
+# Data Collection (Staging)
+# =============================================================================
+data:
+  symbols:
+    - "AAPL"
+    - "GOOGL"
+    - "MSFT"
+    - "AMZN"
+    - "META"
+    - "TSLA"
+    - "NVDA"
+  
+  lookback_days: 365
+  update_interval: 3600  # 1 hour
+  
+  quality_checks:
+    enabled: true
+    min_data_points: 100
+    max_missing_percent: 5
+
+# =============================================================================
+# Training (Staging)
+# =============================================================================
+training:
+  total_timesteps: 500000  # Moderate training
+  eval_freq: 10000
+  
+  checkpoint:
+    enabled: true
+    frequency: 25000
+    keep_best: true
+    min_episodes: 100
+
+# =============================================================================
+# Trading (Staging)
+# =============================================================================
+trading:
+  initial_balance: 100000  # Larger test portfolio
+  transaction_cost: 0.001  # 0.1%
+  max_position_size: 0.3   # 30% max
+  
+  limits:
+    max_trades_per_day: 20
+    max_drawdown_percent: 15
+    position_size_limits:
+      min: 100
+      max: 30000
+
+# =============================================================================
+# API Configuration (Staging)
+# =============================================================================
+api:
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+  
+  yahoo_finance:
+    enabled: true
+    timeout: 10
+  
+  alpha_vantage:
+    enabled: true
+    api_key: "${ALPHA_VANTAGE_API_KEY}"
+  
+  circuit_breaker:
+    max_failures: 3
+    reset_timeout: 300  # 5 minutes
+
+# =============================================================================
+# Monitoring (Staging)
+# =============================================================================
+monitoring:
+  metrics_port: 9090
+  enable_profiling: false
+  
+  alerts:
+    enabled: true
+    channels:
+      - slack
+    
+    rules:
+      - name: "high_error_rate"
+        threshold: 5  # 5% errors
+        window: 300   # 5 minutes
+      
+      - name: "model_degradation"
+        metric: "sharpe_ratio"
+        threshold: 0.3
+        window: 86400  # 1 day
+
+# =============================================================================
+# Backup & Recovery (Staging)
+# =============================================================================
+backup:
+  enabled: true
+  frequency: "daily"
+  retention_days: 14
+  upload_to_cloud: true
+  cloud_provider: "s3"
+  bucket: "alpharl-staging-backups"
