@@ -1,10 +1,17 @@
-# AlphaRL-Quant: Production-Grade Reinforcement Learning for Algorithmic Trading
+# AlphaRL-Quant
+**Advanced Reinforcement Learning-Based Algorithmic Trading System**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF)](https://github.com/features/actions)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Build: Passing](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
+## 🚀 **[Live Demo Dashboard](https://alpharl-quant-phg4zzvjguqjf6ylgfqt9w.streamlit.app/)**
+
+> **Try it now**: Interactive trading dashboard with real-time metrics, portfolio performance charts, and risk analytics.
+
+---
 > **A production-ready deep reinforcement learning system for quantitative trading**, featuring robust data pipelines, optimized feature engineering, PPO-based trading agents, and comprehensive risk-adjusted backtesting.
 
 ---
